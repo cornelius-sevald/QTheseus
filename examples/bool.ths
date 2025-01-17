@@ -1,0 +1,20 @@
+type Bool = True | False
+
+(* identity *)
+iso id : 'a <-> 'a
+| x <-> x
+
+(* boolean not *)
+iso not : Bool <-> Bool
+| True <-> False
+| False <-> True
+
+iso makeTrue : 1 <-> Bool
+| ()           <-> True
+
+iso makeFalse : 1 <-> Bool
+| () <-> not (makeTrue ())
+
+(* make constants *)
+eval makeTrue ()
+eval makeFalse ()

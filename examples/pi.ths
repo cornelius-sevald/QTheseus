@@ -1,0 +1,15 @@
+(* Pi primtives *)
+
+iso swapPlus : 'a + 'b <-> 'b + 'a
+| inL a <-> inR a
+| inR b <-> inL b
+
+iso swapTimes : 'a * 'b <-> 'b * 'a
+| x, y <-> y, x
+
+iso distrib : 'a * ('b + 'c) <-> 'a * 'b + 'a * 'c
+| a, inL b <-> inL (a, b)
+| a, inR c <-> inR (a, c)
+
+iso factor : 'a * 'b + 'a * 'c <-> 'a * ('b + 'c)
+| distrib x <-> x
