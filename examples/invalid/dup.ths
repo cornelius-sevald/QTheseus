@@ -1,0 +1,12 @@
+type Nat = Z | Succ Nat
+type Tree = Leaf Nat | Node Tree * Tree
+
+(* Invalid: duplicates `t1` on LHS *)
+iso dup_var_lhs : Tree * Tree * Tree + Nat <-> Tree
+| inL ((t1, t1), t2) <-> Node (t1, t2)
+| inR n              <-> Leaf n
+
+(* Invalid: duplicates `t1` on RHS *)
+iso dup_var_rhs : Tree <-> Tree * Tree * Tree + Nat
+| Node (t1, t2) <-> inL ((t1, t1), t2)
+| Leaf n        <-> inR n

@@ -1,0 +1,12 @@
+type Foo = Foo
+type Bar = Baz | Qux Foo
+
+(* Invalid: Overlapping LHS cases *)
+iso overlapping_lhs : Foo <-> Bar
+| Foo <-> Baz
+| foo <-> Qux foo 
+
+(* Invalid: Overlapping RHS cases *)
+iso overlapping_rhs : Bar <-> Foo
+| Baz     <-> Foo
+| Qux foo <-> foo

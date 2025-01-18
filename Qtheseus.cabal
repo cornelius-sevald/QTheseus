@@ -62,10 +62,12 @@ library
     exposed-modules:
         QTheseus.Syntax
         QTheseus.Parser
+        QTheseus.Coverage
         QTheseus.Pretty
 
     -- Modules included in this library but not exported.
-    -- other-modules:
+    other-modules:
+        Util
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
@@ -101,6 +103,7 @@ executable QTheseus
         base ^>=4.17.2.1
       , text ^>=2.1
       , optparse-applicative ^>=0.18.1
+      , prettyprinter ^>=1.7.1
       , QTheseus
 
     -- Directories containing source files.

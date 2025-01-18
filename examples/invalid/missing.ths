@@ -1,0 +1,10 @@
+type Foo = Foo
+type Bar = Baz Foo | Qux
+
+(* Invalid: Missing LHS cases *)
+iso missing_lhs : Bar <-> Foo
+| Baz foo <-> foo
+
+(* Invalid: Missing RHS cases *)
+iso missing_rhs : Foo <-> Bar
+| foo <-> Baz foo

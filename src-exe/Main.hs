@@ -4,9 +4,10 @@ module Main where
 
 import qualified Data.Text.IO as TIO
 import Options.Applicative
+import QTheseus.Coverage (checkCoverage, reportErrors)
 import QTheseus.Parser (parseProg)
-import QTheseus.Pretty (prettyProgText)
-import System.Exit (die)
+import QTheseus.Pretty
+import System.Exit (die, exitFailure, exitSuccess)
 import System.IO
 
 data Input
@@ -44,11 +45,23 @@ run inpt = do
     FileInput f -> openFile f ReadMode
     StdInput -> pure stdin
   contents <- TIO.hGetContents handle
+  TIO.putStrLn "Parsing program..."
   case parseProg source contents of
     Left err -> die $ show err
     Right prog -> do
       TIO.putStrLn "Successfully parsed program:"
-      TIO.putStr $ prettyProgText prog
+      TIO.putStrLn "============================"
+      TIO.putStr $ renderText $ prettyProg prog
+      TIO.putStrLn "============================"
+      TIO.putStrLn "Checking coverage of program..."
+      case checkCoverage prog of
+        [] -> do
+          TIO.putStrLn "No coverage errors :)"
+          exitSuccess
+        errs -> do
+          TIO.putStrLn "Encountered coverage errors:"
+          TIO.putStrLn $ renderText $ reportErrors errs
+          exitFailure
 
 main :: IO ()
 main = run =<< execParser opts

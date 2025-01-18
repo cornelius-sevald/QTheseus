@@ -2,15 +2,15 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | Pretty printing for the QTheseus syntax.
-module QTheseus.Pretty (prettyProgText, prettyProg) where
+module QTheseus.Pretty (renderText, prettyProg) where
 
 import Data.Text (Text)
 import Prettyprinter
 import Prettyprinter.Render.Text (renderStrict)
 import QTheseus.Syntax
 
-prettyProgText :: Prog -> Text
-prettyProgText = renderStrict . layoutPretty defaultLayoutOptions . prettyProg
+renderText :: Doc ann -> Text
+renderText = renderStrict . layoutPretty defaultLayoutOptions
 
 prettyProg :: Prog -> Doc ann
 prettyProg prog = vcat ((<> line) . pretty <$> prog)

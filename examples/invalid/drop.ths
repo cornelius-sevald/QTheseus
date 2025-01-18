@@ -1,0 +1,12 @@
+type Nat = Z | Succ Nat
+type Tree = Leaf Nat | Node Tree * Tree
+
+(* Invalid: drops `n` on LHS *)
+iso drop_var_lhs : Tree * Tree + Nat <-> Tree
+| inL (t1, t2) <-> Node (t1, t2)
+| inR Z        <-> Leaf n
+
+(* Invalid: drops `n` on RHS *)
+iso drop_var_rhs : Tree <-> Tree * Tree + Nat
+| Node (t1, t2) <-> inL (t1, t2)
+| Leaf n        <-> inR Z
