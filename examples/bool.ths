@@ -9,12 +9,34 @@ iso not : Bool <-> Bool
 | True <-> False
 | False <-> True
 
-iso makeTrue : 1 <-> Bool
-| ()           <-> True
+(* controlled-not (Feynman gate) *)
+iso cnot : Bool * Bool <-> Bool * Bool
+| True, x <-> True, not x
+| False, x <-> False, x
 
-iso makeFalse : 1 <-> Bool
-| () <-> not (makeTrue ())
+(* controlled-controlled-not (Toffoli gate) *)
+iso ccnot : Bool * Bool * Bool <-> Bool * Bool * Bool
+| True,  True,  x <-> True,  True, not x
+| True,  False, x <-> True,  False, x
+| False, True,  x <-> False, True,  x
+| False, False, x <-> False, False, x
 
-(* make constants *)
-eval makeTrue ()
-eval makeFalse ()
+eval id True
+eval id False
+
+eval not True
+eval not False
+
+eval cnot True,  True
+eval cnot True,  False
+eval cnot False, True
+eval cnot False, False
+
+eval ccnot True,  True,  True
+eval ccnot True,  True,  False
+eval ccnot True,  False, True
+eval ccnot True,  False, False
+eval ccnot False, True,  True
+eval ccnot False, True,  False
+eval ccnot False, False, True
+eval ccnot False, False, False
