@@ -29,7 +29,7 @@ lexer =
             P.identLetter = alphaNum <|> char '_',
             P.opStart = oneOf ":!#$%&*+./<=>?@\\^|-~",
             P.opLetter = P.opStart def,
-            P.reservedNames = ["data", "iso", "eval", "inL", "inR"],
+            P.reservedNames = ["type", "iso", "eval", "inL", "inR"],
             P.reservedOpNames = ["+", "*", ",", ":", "<->", "()"],
             P.caseSensitive = True
           }
