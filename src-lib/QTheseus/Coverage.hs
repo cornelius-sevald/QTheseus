@@ -16,34 +16,36 @@ import Data.List ((\\))
 import qualified Data.List as L
 import Debug.Trace (traceShow)
 import Prettyprinter
+import QTheseus.Core
 import QTheseus.Pretty ()
 import QTheseus.Syntax
 import Util
 
 debug :: Bool
-debug = True
+debug = False
 
 -- | Trace a value with optional debug messaging,
 -- depending on whether or not `debug` is on.
 traceMsg :: (Show a) => Bool -> a -> b -> b
 traceMsg on msg = if on then traceShow msg else id
 
-type Constrs = [(CName, Typ)]
+type Constructors vn = [Constructor vn]
 
-type TypEnv = [(TName, Constrs)]
+type TypEnv vn = [(vn, Constructors vn)]
 
-type CurTyp = (Typ, TypEnv)
+type CurTyp vn = (Typ vn, TypEnv vn)
 
 -- | Lookup a constructor by type- and constructor name.
-lookupConstr :: CName -> TName -> TypEnv -> Either CoverageError Typ
+lookupConstr :: (Eq vn) => vn -> vn -> TypEnv vn -> Either (CoverageError vn) (Typ vn)
 lookupConstr c t env = do
   cs <- lookupTyp t env
-  case lookup c cs of
+  let cs' = (\(Constructor name typ) -> (name, typ)) <$> cs
+  case lookup c cs' of
     Nothing -> Left $ UnboundConstr c t cs
     Just t' -> Right t'
 
 -- | Lookup a type by name.
-lookupTyp :: TName -> TypEnv -> Either CoverageError Constrs
+lookupTyp :: (Eq vn) => vn -> TypEnv vn -> Either (CoverageError vn) (Constructors vn)
 lookupTyp t env = case lookup t env of
   Nothing -> Left $ UnboundTyp t env
   Just cs -> Right cs
@@ -56,29 +58,29 @@ data Side = LHS | RHS
 instance Pretty Side where
   pretty = viaShow
 
-data CoverageError
+data CoverageError vn
   = -- | No matches on side of isomorphism.
-    NoMatches PVal
+    NoMatches (PVal vn)
   | -- | Multiple matches on side of isomorphism.
-    MultipleMatches PVal
+    MultipleMatches (PVal vn)
   | -- | Duplicates variable in pattern.
-    DupsVariable VName
+    DupsVariable vn
   | -- | Drops existing variable on side of clause.
-    DropsVariable VName
-  | UnboundTyp TName TypEnv
-  | UnboundConstr CName TName Constrs
+    DropsVariable vn
+  | UnboundTyp vn (TypEnv vn)
+  | UnboundConstr vn vn (Constructors vn)
   deriving (Show, Eq)
 
-instance Pretty CoverageError where
-  pretty = viaShow
+-- instance (Pretty vn) => Pretty (CoverageError vn) where
+--  pretty = viaShow
 
 -- | Check the coverage of a program,
 -- giving a list of coverage errors encountered.
-checkCoverage :: Prog -> [(Context, CoverageError)]
+checkCoverage :: UncheckedProg -> [(Context, CoverageError Name)]
 checkCoverage prog = go prog []
   where
     -- Loop through the program and report any coverage errors.
-    go :: [Def] -> TypEnv -> [(Context, CoverageError)]
+    go :: [Def Name] -> TypEnv Name -> [(Context, CoverageError Name)]
     -- No definitions => no errors.
     go [] _ = []
     go (def : defs) env =
@@ -95,7 +97,13 @@ checkCoverage prog = go prog []
            in lhs ++ rhs ++ vrs ++ go defs env
 
 -- | Check the coverage one side of an isomorphism.
-checkSide :: Side -> FName -> [Clause] -> ITyp -> TypEnv -> [(Context, CoverageError)]
+checkSide ::
+  Side ->
+  Name ->
+  [Clause Name] ->
+  ITyp Name ->
+  TypEnv Name ->
+  [(Context, CoverageError Name)]
 checkSide side name clauses ityp env =
   let typ = typFromSide side ityp
       pats = patFromSide side <$> clauses
@@ -106,7 +114,7 @@ checkSide side name clauses ityp env =
 -- | Check that all variables are used exactly once
 -- on each side of a clause.
 -- Also checks for duplicate variable names on the same side.
-checkVars :: FName -> (Integer, Clause) -> [(Context, CoverageError)]
+checkVars :: Name -> (Integer, Clause Name) -> [(Context, CoverageError Name)]
 checkVars name (n, clause) =
   let lhsVars = vars $ patFromSide LHS clause
       rhsVars = vars $ patFromSide RHS clause
@@ -121,14 +129,14 @@ checkVars name (n, clause) =
         ++ ((ctx RHS,) . DropsVariable <$> rhsDrops)
   where
     -- The set of duplicate variables in `xs`.
-    findDupVars :: [VName] -> [VName]
+    findDupVars :: [Name] -> [Name]
     findDupVars xs = L.nub (xs \\ L.nub xs)
     -- The set of variables in `ys` not in `xs`,
     -- i.e. the set of variables dropped from `xs` w.r.t. `ys`.
-    findDropVars :: [VName] -> [VName] -> [VName]
+    findDropVars :: [Name] -> [Name] -> [Name]
     findDropVars xs ys = L.nub ys \\ L.nub xs
     -- Extract all variables of a pattern.
-    vars :: PVal -> [VName]
+    vars :: PVal Name -> [Name]
     vars Unit = []
     vars (Prod p1 p2) = vars p1 ++ vars p2
     vars (SumL pl) = vars pl
@@ -138,17 +146,21 @@ checkVars name (n, clause) =
     vars (Var v) = [v]
 
 -- | Get the left- or rigt-hand side type of an isomorphism.
-typFromSide :: Side -> ITyp -> Typ
+typFromSide :: Side -> ITyp vn -> Typ vn
 typFromSide LHS (ITyp tl _) = tl
 typFromSide RHS (ITyp _ tr) = tr
 
 -- | Get the left- or rigt-hand side pattern of a clause.
-patFromSide :: Side -> Clause -> PVal
+patFromSide :: Side -> Clause vn -> PVal vn
 patFromSide LHS (Clause pl _) = pl
 patFromSide RHS (Clause _ pr) = pr
 
 -- | Check if a list of patterns are exhaustive for a type.
-exhaustive :: Context -> [PVal] -> CurTyp -> [CoverageError]
+exhaustive ::
+  Context ->
+  [PVal Name] ->
+  CurTyp Name ->
+  [CoverageError Name]
 exhaustive context ps ct =
   let ps' = L.sortBy comparePVal ps
       res = covers [wildcard] ps' ct
@@ -156,7 +168,11 @@ exhaustive context ps ct =
    in traceMsg debug msg res
 
 -- | Check if two lists of patterns exactly cover each other
-covers :: [PVal] -> [PVal] -> CurTyp -> [CoverageError]
+covers ::
+  [PVal Name] ->
+  [PVal Name] ->
+  CurTyp Name ->
+  [CoverageError Name]
 covers [] [] _ = []
 covers [] ps _ = MultipleMatches <$> ps
 covers ps [] _ = NoMatches <$> ps
@@ -180,7 +196,11 @@ covers (a : as) (b : bs) ct = either pure trace_next (reconcile a b ct)
 -- if one is more general than the other, then it is split up into
 --   more specific subpatterns
 -- if they can't be reconciled then no patterns are returned
-reconcile :: PVal -> PVal -> CurTyp -> Either CoverageError ([PVal], [PVal])
+reconcile ::
+  PVal Name ->
+  PVal Name ->
+  CurTyp Name ->
+  Either (CoverageError Name) ([PVal Name], [PVal Name])
 reconcile x y _
   | matchesAny x && matchesAny y = pure ([x], [y])
 reconcile x p typ
@@ -221,7 +241,10 @@ reconcile _ _ _ = pure ([], [])
 -- NOTE: not sure exactly how this interacts with `TypVar`,
 -- as Theseus doesn't distinguish between
 -- type variables and user-defined types.
-expand :: PVal -> CurTyp -> Either CoverageError [PVal]
+expand ::
+  PVal Name ->
+  CurTyp Name ->
+  Either (CoverageError Name) [PVal Name]
 expand Unit (One, _) = pure [Unit]
 expand x (One, _)
   | matchesAny x = pure [Unit]
@@ -240,7 +263,7 @@ expand (SumR p) (Plus _ t, env) = do
 expand (Constr c p) (TypDef t, env) = do
   constrs <- lookupTyp t env
   fmap concat . sequenceA $ do
-    (c', t') <- constrs
+    Constructor c' t' <- constrs
     if c == c'
       then pure $ fmap (Constr c') <$> expand p (t', env)
       else
@@ -250,16 +273,16 @@ expand (Constr c p) (TypDef t, env) = do
 expand _ _ = pure []
 
 -- | Wildcard pattern matching any
-wildcard :: PVal
+wildcard :: PVal Name
 wildcard = Var "_"
 
 -- | Check if a pattern matches any value.
-matchesAny :: PVal -> Bool
+matchesAny :: PVal vn -> Bool
 matchesAny (Var _) = True
 matchesAny (App _ _) = True
 matchesAny _ = False
 
-reportError :: Context -> CoverageError -> Doc ann
+reportError :: (Pretty vn) => Context -> CoverageError vn -> Doc ann
 reportError context err =
   case err of
     (MultipleMatches p) ->
@@ -308,9 +331,9 @@ reportError context err =
         <+> "of type"
         <+> quote t
         <+> "in list of constructors:"
-        <+> pretty (fst <$> constrs)
+        <+> pretty ((\(Constructor name _) -> name) <$> constrs)
   where
     quote x = surround (pretty x) "'" "'"
 
-reportErrors :: [(Context, CoverageError)] -> Doc ann
+reportErrors :: (Pretty vn) => [(Context, CoverageError vn)] -> Doc ann
 reportErrors = vcat . map (uncurry reportError)

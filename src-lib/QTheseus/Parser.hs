@@ -11,6 +11,7 @@ import Data.Functor.Identity (Identity)
 import Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import QTheseus.Core
 import QTheseus.Syntax
 import Text.Parsec
 import Text.Parsec.Expr
@@ -35,94 +36,80 @@ lexer =
           }
    in P.makeTokenParser def
 
-parseProgFromFile :: FilePath -> IO (Either ParseError Prog)
+parseProgFromFile :: FilePath -> IO (Either ParseError UncheckedProg)
 parseProgFromFile fname = do
   input <- TIO.readFile fname
   pure $ parseProg fname input
 
-parseProg :: SourceName -> Text -> Either ParseError Prog
+parseProg :: SourceName -> Text -> Either ParseError UncheckedProg
 parseProg = runParser progParser ()
 
-progParser :: Parser Prog
+progParser :: Parser UncheckedProg
 progParser = do
   whiteSpace
   prog <- many defParser
   eof
   pure prog
 
-defParser :: Parser Def
+defParser :: Parser (Def Name)
 defParser = pData <|> pIso <|> pEval
   where
     pData = do
       reserved "type"
-      tn <- TName <$> identifier
+      tn <- pTName
       void $ symbol "="
       args <- sepBy1 pConstructor (symbol "|")
       pure $ DataTyp tn args
     pIso =
       do
         reserved "iso"
-        fname <- pFName
+        name <- pFName
         void $ symbol ":"
         ityp <- iTypParser
         clauses <- many1 (symbol "|" >> clauseParser)
-        pure $ Iso fname ityp clauses
+        pure $ Iso name ityp clauses
         <?> "isomorphism"
     pEval =
       do
         reserved "eval"
-        fname <- pFName
+        name <- pFName
         val <- valParser
-        pure $ Eval fname val
+        pure $ Eval name val
         <?> "evaluation"
     pConstructor = do
-      cnstr <- CName <$> identifier
+      cnstr <- pCName
       typ <- option One typParser
-      pure (cnstr, typ)
+      pure $ Constructor cnstr typ
 
-typParser :: Parser Typ
+typParser :: Parser (Typ Name)
 typParser = buildExpressionParser typTable simpleTypParser
   where
     simpleTypParser =
       (symbol "0" $> Zero)
         <|> (symbol "1" $> One)
-        <|> (symbol "'" >> TypVar . VName <$> identifier)
-        <|> (TypDef . TName <$> identifier)
+        <|> (symbol "'" >> TypVar <$> identifier)
+        <|> (TypDef <$> pTName)
         <|> parens typParser
     typTable =
       [ [Infix (reservedOp "*" $> Times) AssocLeft],
         [Infix (reservedOp "+" $> Plus) AssocLeft]
       ]
 
-valParser :: Parser PVal
+valParser :: Parser (PVal Name)
 valParser = buildExpressionParser valTable simpleValParser
   where
     simpleValParser =
       reservedOp "()" $> Unit
-        <|> try
-          ( do
-              fname <- pFName
-              val <- simpleValParser
-              pure $ App fname val
-          )
-        <|> try
-          ( do
-              vname <- pVName
-              pure $ Var vname
-          )
-        <|> try
-          ( do
-              cname <- pCName
-              val <- option Unit simpleValParser
-              pure $ Constr cname val
-          )
+        <|> try (App <$> pFName <*> simpleValParser)
+        <|> try (Var <$> pVName)
+        <|> try (Constr <$> pCName <*> option Unit simpleValParser)
         <|> parens valParser
     valTable =
       [ [Prefix (reserved "inL" $> SumL), Prefix (reserved "inR" $> SumR)],
         [Infix (reservedOp "," $> Prod) AssocLeft]
       ]
 
-iTypParser :: Parser ITyp
+iTypParser :: Parser (ITyp Name)
 iTypParser =
   do
     t1 <- typParser
@@ -131,7 +118,7 @@ iTypParser =
     pure $ ITyp t1 t2
     <?> "type isomorphism"
 
-clauseParser :: Parser Clause
+clauseParser :: Parser (Clause Name)
 clauseParser =
   do
     x1 <- valParser
@@ -140,37 +127,39 @@ clauseParser =
     pure $ Clause x1 x2
     <?> "clause"
 
-pVName :: Parser VName
-pVName = VName <$> lowercaseParse "variable name"
-
-pFName :: Parser FName
-pFName = FName <$> lowercaseParse "function name"
-
-pCName :: Parser CName
-pCName = CName <$> uppercaseParse "constructor name"
-
-uppercaseParse :: String -> Parsec Text () Text
+uppercaseParse :: String -> Parsec Text () Name
 uppercaseParse msg =
   try
     ( do
         name <- identifier
-        if startsWithUpper name
+        if startsWithUpper $ nameToText name
           then pure name
           else fail msg
     )
 
-lowercaseParse :: String -> Parsec Text () Text
+lowercaseParse :: String -> Parsec Text () Name
 lowercaseParse msg =
   try
     ( do
         name <- identifier
-        if startsWithLower name
+        if startsWithLower $ nameToText name
           then pure name
           else fail msg
     )
 
-identifier :: Parser Text
-identifier = T.pack <$> P.identifier lexer
+-- | Convenience functions for parsing
+-- variable, function, type, and constructor names.
+--
+-- Note that here "VName" is short for variable name,
+-- and does not refer to the `VName` type.... yeah.
+pVName, pFName, pTName, pCName :: Parser Name
+pVName = lowercaseParse "variable name"
+pFName = lowercaseParse "function name"
+pTName = uppercaseParse "type name"
+pCName = uppercaseParse "constructor name"
+
+identifier :: Parser Name
+identifier = nameFromString <$> P.identifier lexer
 
 reserved, reservedOp :: String -> Parser ()
 reserved = P.reserved lexer

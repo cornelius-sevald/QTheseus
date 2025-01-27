@@ -3,50 +3,53 @@
 -- | Definitions for the QTheseus source language AST.
 module QTheseus.Syntax where
 
-import Data.String (IsString)
-import Data.Text (Text)
+import QTheseus.Core
 
-type Prog = [Def]
+-- | A program with no type- or coverage checking.
+type UncheckedProg = [Def Name]
+
+-- | Base program type, polymorphic over names.
+type ProgBase vn = [Def vn]
 
 -- | Top-level language definitions
-data Def
+data Def vn
   = -- | Algebraic datatype declaration.
-    DataTyp TName [(CName, Typ)]
+    DataTyp vn [Constructor vn]
   | -- | A named isomorphism.
-    Iso FName ITyp [Clause]
+    Iso vn (ITyp vn) [Clause vn]
   | -- | Evaluation of a isomorphism from left-to-right given a value.
-    Eval FName Val
+    Eval vn (Val vn)
   deriving (Show, Eq)
 
 -- | The types of the language.
-data Typ
+data Typ vn
   = Zero
   | One
-  | Times Typ Typ
-  | Plus Typ Typ
+  | Times (Typ vn) (Typ vn)
+  | Plus (Typ vn) (Typ vn)
   | -- | Polymorphic type variable
-    TypVar VName
+    TypVar vn
   | -- | User defined type
-    TypDef TName
+    TypDef vn
   deriving (Show, Eq, Ord)
 
 -- | The values of the language.
-data PVal
+data PVal vn
   = Unit
-  | Prod Val Val
-  | SumL Val
-  | SumR Val
+  | Prod (PVal vn) (PVal vn)
+  | SumL (PVal vn)
+  | SumR (PVal vn)
   | -- | Pattern starting with constructor.
-    Constr CName PVal
+    Constr vn (PVal vn)
   | -- | Variable pattern.
-    Var VName
+    Var vn
   | -- | Function application.
-    App FName PVal
+    App vn (PVal vn)
   deriving (Show, Eq)
 
 -- | Give each constructor of `PVal` an (almost unique) number,
 -- only letting `Var` and `App` have the same.
-pvalToNum :: PVal -> Int
+pvalToNum :: PVal vn -> Int
 pvalToNum Unit = 0
 pvalToNum (Prod _ _) = 1
 pvalToNum (SumL _) = 2
@@ -61,7 +64,7 @@ pvalToNum (App _ _) = -1
 -- we would not have `p1 == p2` iff. `compare p1 p2 == EQ`,
 -- as this function considers *any* combination of
 -- variables and function applications equal.
-comparePVal :: PVal -> PVal -> Ordering
+comparePVal :: (Ord vn) => PVal vn -> PVal vn -> Ordering
 comparePVal p1 p2 =
   compare (pvalToNum p1) (pvalToNum p2) <> comp p1 p2
   where
@@ -80,26 +83,14 @@ comparePVal p1 p2 =
 -- but is not enforced.
 type Val = PVal
 
+-- | A data type constructor
+data Constructor vn = Constructor vn (Typ vn)
+  deriving (Show, Eq, Ord)
+
 -- | Type isomorphism.
-data ITyp = ITyp Typ Typ
+data ITyp vn = ITyp (Typ vn) (Typ vn)
   deriving (Show, Eq)
 
 -- | A clause in a function is an isomorphism between two values.
-data Clause = Clause PVal PVal
+data Clause vn = Clause (PVal vn) (PVal vn)
   deriving (Show, Eq)
-
--- | Function (isomorphism) name.
-newtype FName = FName Text
-  deriving (Show, Eq, Ord, IsString)
-
--- | Variable names.
-newtype VName = VName Text
-  deriving (Show, Eq, Ord, IsString)
-
--- | Data type name, or type variable.
-newtype TName = TName Text
-  deriving (Show, Eq, Ord, IsString)
-
--- | Constructor name.
-newtype CName = CName Text
-  deriving (Show, Eq, Ord, IsString)
