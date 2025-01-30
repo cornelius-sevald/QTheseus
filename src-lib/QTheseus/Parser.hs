@@ -78,21 +78,30 @@ defParser = pData <|> pIso <|> pEval
         <?> "evaluation"
     pConstructor = do
       cnstr <- pCName
-      typ <- option One typParser
+      typ <- option One concreteTypParser
       pure $ Constructor cnstr typ
 
+-- | Parse a type, including type variables
 typParser :: Parser (Typ Name)
-typParser = buildExpressionParser typTable simpleTypParser
+typParser = typParser' (pure . TypVar)
+
+-- | Parse a type, excluding type variables.
+concreteTypParser :: Parser (Typ Name)
+concreteTypParser = typParser' (const $ fail "Concrete type can't include type variable")
+
+-- | Parse a type, with a handler for parsing type variables.
+typParser' :: (Name -> Parser (Typ Name)) -> Parser (Typ Name)
+typParser' pTypVar = buildExpressionParser typTable simpleTypParser
   where
     simpleTypParser =
       (symbol "0" $> Zero)
         <|> (symbol "1" $> One)
-        <|> (symbol "'" >> TypVar <$> identifier)
+        <|> (symbol "'" >> identifier >>= pTypVar)
         <|> (TypDef <$> pTName)
         <|> parens typParser
     typTable =
-      [ [Infix (reservedOp "*" $> Times) AssocLeft],
-        [Infix (reservedOp "+" $> Plus) AssocLeft]
+      [ [Infix (reservedOp "*" $> Times) AssocRight],
+        [Infix (reservedOp "+" $> Plus) AssocRight]
       ]
 
 valParser :: Parser (PVal Name)
@@ -106,7 +115,7 @@ valParser = buildExpressionParser valTable simpleValParser
         <|> parens valParser
     valTable =
       [ [Prefix (reserved "inL" $> SumL), Prefix (reserved "inR" $> SumR)],
-        [Infix (reservedOp "," $> Prod) AssocLeft]
+        [Infix (reservedOp "," $> Prod) AssocRight]
       ]
 
 iTypParser :: Parser (ITyp Name)
