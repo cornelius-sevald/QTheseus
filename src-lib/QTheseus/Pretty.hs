@@ -60,3 +60,6 @@ instance Pretty Name where
 
 instance Pretty VName where
   pretty (VName name tag) = pretty name <> "_" <> pretty tag
+
+instance Pretty Side where
+  pretty = viaShow

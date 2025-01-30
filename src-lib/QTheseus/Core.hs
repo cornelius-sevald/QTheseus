@@ -9,6 +9,9 @@ module QTheseus.Core where
 import Data.String (IsString)
 import qualified Data.Text as T
 
+data Side = LHS | RHS
+  deriving (Show, Eq)
+
 -- | An abstract type representing names.
 newtype Name = Name T.Text
   deriving (Show, Eq, Ord, IsString, Semigroup)

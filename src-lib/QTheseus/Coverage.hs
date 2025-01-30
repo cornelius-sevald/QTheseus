@@ -52,12 +52,6 @@ lookupTyp t env = case lookup t env of
 
 type Context = String
 
-data Side = LHS | RHS
-  deriving (Show, Eq)
-
-instance Pretty Side where
-  pretty = viaShow
-
 data CoverageError vn
   = -- | No matches on side of isomorphism.
     NoMatches (PVal vn)
@@ -105,8 +99,8 @@ checkSide ::
   TypEnv Name ->
   [(Context, CoverageError Name)]
 checkSide side name clauses ityp env =
-  let typ = typFromSide side ityp
-      pats = patFromSide side <$> clauses
+  let typ = projITyp side ityp
+      pats = projClause side <$> clauses
       context = show (pretty side <+> "of" <+> pretty name)
       coverage = exhaustive context pats (typ, env)
    in (context,) <$> coverage
@@ -116,8 +110,8 @@ checkSide side name clauses ityp env =
 -- Also checks for duplicate variable names on the same side.
 checkVars :: Name -> (Integer, Clause Name) -> [(Context, CoverageError Name)]
 checkVars name (n, clause) =
-  let lhsVars = vars $ patFromSide LHS clause
-      rhsVars = vars $ patFromSide RHS clause
+  let lhsVars = vars $ projClause LHS clause
+      rhsVars = vars $ projClause RHS clause
       lhsDups = traceMsg debug ("LHS vars: " ++ show lhsVars) $ findDupVars lhsVars
       rhsDups = traceMsg debug ("RHS vars: " ++ show rhsVars) $ findDupVars rhsVars
       lhsDrops = findDropVars lhsVars rhsVars
@@ -144,16 +138,6 @@ checkVars name (n, clause) =
     vars (Constr _ ps) = vars ps
     vars (App _ ps) = vars ps
     vars (Var v) = [v]
-
--- | Get the left- or rigt-hand side type of an isomorphism.
-typFromSide :: Side -> ITyp vn -> Typ vn
-typFromSide LHS (ITyp tl _) = tl
-typFromSide RHS (ITyp _ tr) = tr
-
--- | Get the left- or rigt-hand side pattern of a clause.
-patFromSide :: Side -> Clause vn -> PVal vn
-patFromSide LHS (Clause pl _) = pl
-patFromSide RHS (Clause _ pr) = pr
 
 -- | Check if a list of patterns are exhaustive for a type.
 exhaustive ::
