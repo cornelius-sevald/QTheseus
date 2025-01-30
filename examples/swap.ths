@@ -1,0 +1,60 @@
+type Bool = True | False
+
+type Foo = Foo1 | Foo2
+
+iso id : Foo * Foo <-> Foo * Foo
+| x, y  <-> x, y
+
+iso swap : Foo * Foo <-> Foo * Foo
+| x, y  <-> y, x
+
+iso cswap : Bool * (Foo * Foo) <-> Bool * (Foo * Foo)
+| False, (x, y) <-> False, (x, y)
+| True,  (x, y) <-> True,  (y, x)
+
+(* Alternative conditional swap using the `id` and `swap` on the RHS. *)
+iso cswap_alt1 : Bool * (Foo * Foo) <-> Bool * (Foo * Foo)
+| False, (x, y) <-> False, id   (x, y)
+| True,  (x, y) <-> True,  swap (x, y)
+
+(* Alternative conditional swap using the `id` and `swap` on the LHS. *)
+iso cswap_alt2 : Bool * (Foo * Foo) <-> Bool * (Foo * Foo)
+| False, id   (x, y) <-> False, (x, y)
+| True,  swap (x, y) <-> True,  (x, y)
+
+eval id Foo1 , Foo1
+eval id Foo1 , Foo2
+eval id Foo2 , Foo1
+eval id Foo2 , Foo2
+
+eval swap Foo1 , Foo1
+eval swap Foo1 , Foo2
+eval swap Foo2 , Foo1
+eval swap Foo2 , Foo2
+
+eval cswap False , (Foo1 , Foo1)
+eval cswap False , (Foo1 , Foo2)
+eval cswap False , (Foo2 , Foo1)
+eval cswap False , (Foo2 , Foo2)
+eval cswap True  , (Foo1 , Foo1)
+eval cswap True  , (Foo1 , Foo2)
+eval cswap True  , (Foo2 , Foo1)
+eval cswap True  , (Foo2 , Foo2)
+
+eval cswap_alt1 False , (Foo1 , Foo1)
+eval cswap_alt1 False , (Foo1 , Foo2)
+eval cswap_alt1 False , (Foo2 , Foo1)
+eval cswap_alt1 False , (Foo2 , Foo2)
+eval cswap_alt1 True  , (Foo1 , Foo1)
+eval cswap_alt1 True  , (Foo1 , Foo2)
+eval cswap_alt1 True  , (Foo2 , Foo1)
+eval cswap_alt1 True  , (Foo2 , Foo2)
+
+eval cswap_alt2 False , (Foo1 , Foo1)
+eval cswap_alt2 False , (Foo1 , Foo2)
+eval cswap_alt2 False , (Foo2 , Foo1)
+eval cswap_alt2 False , (Foo2 , Foo2)
+eval cswap_alt2 True  , (Foo1 , Foo1)
+eval cswap_alt2 True  , (Foo1 , Foo2)
+eval cswap_alt2 True  , (Foo2 , Foo1)
+eval cswap_alt2 True  , (Foo2 , Foo2)
