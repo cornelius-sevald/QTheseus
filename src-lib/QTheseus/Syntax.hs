@@ -1,8 +1,7 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-
 -- | Definitions for the QTheseus source language AST.
 module QTheseus.Syntax where
 
+import Data.List (nub)
 import QTheseus.Core
 
 -- | A program with no type- or coverage checking.
@@ -94,3 +93,49 @@ data ITyp vn = ITyp (Typ vn) (Typ vn)
 -- | A clause in a function is an isomorphism between two values.
 data Clause vn = Clause (PVal vn) (PVal vn)
   deriving (Show, Eq)
+
+{- Utility functions for working on AST elements. -}
+
+-- | Get the left- or rigt-hand side type of an isomorphism.
+projITyp :: Side -> ITyp vn -> Typ vn
+projITyp LHS (ITyp tl _) = tl
+projITyp RHS (ITyp _ tr) = tr
+
+-- | Get the left- or rigt-hand side pattern of a clause.
+projClause :: Side -> Clause vn -> PVal vn
+projClause LHS (Clause pl _) = pl
+projClause RHS (Clause _ pr) = pr
+
+-- | Get a collection of all user-defined types.
+getTypeDefs :: ProgBase vn -> [(vn, [Constructor vn])]
+getTypeDefs prog = [(name, constrs) | DataTyp name constrs <- prog]
+
+-- | Get a collection of all user-defined isomorphisms.
+getIsoDefs :: ProgBase vn -> [(vn, (ITyp vn, [Clause vn]))]
+getIsoDefs prog = [(name, (ityp, clauses)) | Iso name ityp clauses <- prog]
+
+getTypeNames :: ProgBase vn -> [vn]
+getTypeNames prog = [name | DataTyp name _ <- prog]
+
+getConstructorNames :: ProgBase vn -> [vn]
+getConstructorNames prog = [name | DataTyp _ constrs <- prog, Constructor name _ <- constrs]
+
+getIsoNames :: ProgBase vn -> [vn]
+getIsoNames prog = [name | Iso name _ _ <- prog]
+
+getTypVars :: (Eq vn) => Typ vn -> [vn]
+getTypVars Zero = []
+getTypVars One = []
+getTypVars (TypDef _) = []
+getTypVars (TypVar name) = [name]
+getTypVars (Times t1 t2) = nub (getTypVars t1 ++ getTypVars t2)
+getTypVars (Plus t1 t2) = nub (getTypVars t1 ++ getTypVars t2)
+
+getVars :: (Eq vn) => PVal vn -> [vn]
+getVars Unit = []
+getVars (Var name) = [name]
+getVars (Prod v1 v2) = nub (getVars v1 ++ getVars v2)
+getVars (SumL v1) = getVars v1
+getVars (SumR v2) = getVars v2
+getVars (Constr _ v) = getVars v
+getVars (App _ v) = getVars v
