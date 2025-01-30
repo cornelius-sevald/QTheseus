@@ -1,7 +1,7 @@
 type Bool = True | False
 
 (* identity *)
-iso id : 'a <-> 'a
+iso id : Bool <-> Bool
 | x <-> x
 
 (* boolean not *)
