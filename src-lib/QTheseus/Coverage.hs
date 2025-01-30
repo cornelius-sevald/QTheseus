@@ -10,7 +10,7 @@
  - left- and right-hand side must be a complete non-overlapping
  - covering of the input- and output types respectively.
  - -}
-module QTheseus.Coverage (checkCoverage, reportError, reportErrors) where
+module QTheseus.Coverage (checkCoverage, reportCoverageError, reportCoverageErrors) where
 
 import Data.List ((\\))
 import qualified Data.List as L
@@ -266,8 +266,8 @@ matchesAny (Var _) = True
 matchesAny (App _ _) = True
 matchesAny _ = False
 
-reportError :: (Pretty vn) => Context -> CoverageError vn -> Doc ann
-reportError context err =
+reportCoverageError :: (Pretty vn) => Context -> CoverageError vn -> Doc ann
+reportCoverageError context err =
   case err of
     (MultipleMatches p) ->
       "Error:"
@@ -319,5 +319,5 @@ reportError context err =
   where
     quote x = surround (pretty x) "'" "'"
 
-reportErrors :: (Pretty vn) => [(Context, CoverageError vn)] -> Doc ann
-reportErrors = vcat . map (uncurry reportError)
+reportCoverageErrors :: (Pretty vn) => [(Context, CoverageError vn)] -> Doc ann
+reportCoverageErrors = vcat . map (uncurry reportCoverageError)

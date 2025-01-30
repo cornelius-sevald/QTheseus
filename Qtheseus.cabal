@@ -62,8 +62,12 @@ library
     exposed-modules:
         QTheseus.Core
         QTheseus.Syntax
+        QTheseus.Semantics
         QTheseus.Parser
         QTheseus.Coverage
+        QTheseus.TypeChecker
+        QTheseus.FreshNames
+        QTheseus.Pi
         QTheseus.Pretty
 
     -- Modules included in this library but not exported.
@@ -77,8 +81,12 @@ library
     build-depends:
         base ^>=4.17.2.1
       , text ^>=2.1
+      , transformers ^>=0.6.1
+      , mtl ^>=2.3.1
       , parsec ^>=3.1.17
       , prettyprinter ^>=1.7.1
+      , vector ^>=0.13.2
+      , matrix ^>=0.3.6
 
     -- Directories containing source files.
     hs-source-dirs:   src-lib
